@@ -48,6 +48,11 @@ def x_to_totcost_mono(x, const):
 def x_to_totcost_alt(xdes,xres, const):
     return des_cost(xdes, const) + res_cost(xres,xdes, const)
 
+history = []
+def callbackF(Xdes, result):
+    history.append(result['fun'])
+    #print('{0:4d}   {1: 3.6f}   {2: 3.6f}   {3: 3.6f}'.format(result['nit'], Xdes[0], Xdes[1],Xdes[2],Xdes[3], result['fun']))
+
 
 h_con = NonlinearConstraint(des_h_const,0,0)
 g_con = NonlinearConstraint(des_g_const,0,np.inf)
@@ -57,36 +62,42 @@ constraints_des = [{'type':'eq', 'fun': lambda x: x[0]-(x[3]+x[1]), 'jac': lambd
 result_d = minimize(des_cost, xdes, method='SLSQP', bounds = xdb, constraints =constraints_des, args = const)
 
 # all-in-one 
-#constraints = [{'type':'eq', 'fun': lambda x: x[0]-(x[3]+x[1]), 'jac': lambda x: np.array([1,-1,0,-1,0,0])}, {'type':'ineq', 'fun': lambda x: np.power(10.0, -x[1]) - x[2], 'jac': lambda x: np.array([0, -np.log(10)*np.power(10.0, -x[1]), -1, 0,0,0]) }]
-#result_aao = minimize(x_to_totcost_mono, x, method='trust-constr', bounds = xb, constraints =constraints, args = const, options={'maxiter':1e3, 'verbose':True})
+constraints = [{'type':'eq', 'fun': lambda x: x[0]-(x[3]+x[1]), 'jac': lambda x: np.array([1,-1,0,-1,0,0])}, {'type':'ineq', 'fun': lambda x: np.power(10.0, -x[1]) - x[2], 'jac': lambda x: np.array([0, -np.log(10)*np.power(10.0, -x[1]), -1, 0,0,0]) }]
+result_aao = minimize(x_to_totcost_mono, x, method='trust-constr', bounds = xb, constraints =constraints, args = const, callback=callbackF, options={'maxiter':1e3, 'verbose':2})
 
 # bi-level
-def bi_upper_level(xdes,const):
+def bi_upper_level(xdes, args):
+    const = args['const']
+    xres = args['xres']
     dcost = des_cost(xdes, const)
     xres = [1,1]
     xrb =  ((0.0001,100), (0.0001,100))
     ll_result = minimize(res_cost, xres, method='trust-constr', bounds = xrb, args = (xdes, const),options={'maxiter':10})
+    args['xres'] = ll_result['x']
     rcost = ll_result['fun']
     return rcost + dcost
-result_bi = minimize(bi_upper_level, xdes, method='trust-constr', bounds = xdb, constraints =constraints_des, args = const, options={'maxiter':100, 'verbose':True})
+args = {'const':const, 'xres':[1,1]}
+result_bi = minimize(bi_upper_level, xdes, method='trust-constr', bounds = xdb, constraints =constraints_des, args = args, callback=callbackF, options={'maxiter':100, 'verbose':2})
 
 # alternating
-def alternating(x_init, const, constraints_des):
+def alternating(x_init, const, constraints_des, res_inc=True):
     xdes = x_init[0:4]
     xres = x_init[4:]
     xdb = ((0,100),(0,100),(0,100),(0,100))
     xrb = ((1e-6,100), (1e-6,100))
     for i in range(20):
-        result_d = minimize(x_to_totcost_alt, xdes, method='trust-constr', bounds = xdb, constraints =constraints_des, args = (xres,const),options={'maxiter':100})
+        if res_inc:     result_d = minimize(x_to_totcost_alt, xdes, method='trust-constr', bounds = xdb, constraints =constraints_des, args = (xres,const),options={'maxiter':100})
+        else:           result_d = minimize(des_cost, xdes, method='trust-constr', bounds = xdb, constraints =constraints_des, args = const,options={'maxiter':100})
         xdes = result_d['x']
         result_r = minimize(res_cost, xres, method='trust-constr', bounds = xrb, args = (xdes, const),options={'maxiter':100})
         xres = result_r['x']
-        fval = result_d['fun'] + result_r['fun']
+        fval = des_cost(result_d['x'], const) + result_r['fun']
     return xdes,xres, fval
+
+xdes_d,xres_d, fval_d = alternating(x, const, constraints_des, res_inc=False)
 
 xdes,xres, fval = alternating(x, const, constraints_des)
         
-
 
 # substituting in the h-constraint: x_s = x_p + x_a / x[3] = x[0] + x[1]
 #def des_cost_sub(xdes,const):
