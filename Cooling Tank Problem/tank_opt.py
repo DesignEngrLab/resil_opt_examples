@@ -56,13 +56,17 @@ def x_to_totcost3(xdes, xres1, xres2): # total cost with crude penalty function
 
 def lower_level(xdes, args):
     do_cost = x_to_descost(xdes) 
-    bestsol, rcost, time = EA(args=args, xdes=xdes)
+    bestsol, rcost, runtime = EA(args=args, xdes=xdes)
+    args['fhist'].append(do_cost+rcost)
+    args['thist'].append(time.time()-args['starttime'])
     return do_cost + rcost
 
 def bilevel_opt():
     xdes = [20, 1]
-    args = {'seed':seedpop(), 'll_opt':1e6, 'll_optx':[]}
-    result = minimize(lower_level, xdes, method='Powell', bounds =((10, 100),(0,1)), callback=callbackF1, args = args, options={'direc':[[0,1],[1,0]], 'disp':True})
+    args = {'seed':seedpop(), 'll_opt':1e6, 'll_optx':[], 'fhist':[],'thist':[],'starttime':time.time()}
+    result = minimize(lower_level, xdes, method='Powell', bounds =((10, 100),(0,1)), callback=callbackF1, args = args, options={'direc':[[0,1],[1,0]], 'disp':"final"})
+    fullfhist = args['fhist']
+    args['fhist'] =  [fullfhist[0]]+[min(fullfhist[:i]) for i,f in enumerate(fullfhist) if i!=0]
     return result, args
 
 def alternating_opt():
@@ -72,20 +76,24 @@ def alternating_opt():
     lastmin = 1000000001
     bestsol = np.zeros((2,27))
     last_run = False
+    starttime = time.time()
+    fhist = []
+    thist = []
     for n in range(10):
         result = minimize(x_to_totcost2, [np.round(xdes[0],1), np.round(xdes[1],1)], method='Powell', callback=callbackF1, args = (bestsol[0],bestsol[1]), options={'direc':[[0,1],[1,0]], 'disp':True})
         #result = minimize(x_to_totcost2, xdes, method='Powell', callback=callbackF1,  args = (bestsol[0],bestsol[1]), options={'disp':True,'ftol': 0.000001})
         # doesn't really work: trust-constr, SLSQP, Nelder-Mead (doesn't respect bounds), COBYLA (a bit better, but converges poorly), 
         # powell does okay but I'm not sure if it's actually searching the x-direction
         xdes = result['x']
-        bestsol, rcost, time = EA(args=args, popsize=100, mutations=20,numselect=30, iters=50, xdes = xdes)
+        bestsol, rcost, runtime = EA(args=args, popsize=50, mutations=10,numselect=20, iters=20, xdes = xdes, verbose="iters")
         lastmin = newmin; newmin = x_to_descost(xdes) + rcost
         print(n, newmin, lastmin-newmin)
         if lastmin - newmin <0.1: 
             if last_run:    break
             else:           last_run = True
         else:               last_run = False
-    return result, args
+        fhist.append(newmin), thist.append(time.time()-starttime)
+    return result, args, fhist, thist
 
 
 def callbackF(Xdes, result):
@@ -93,7 +101,7 @@ def callbackF(Xdes, result):
 def callbackF1(Xdes):
     print(Xdes)
 
-def EA(popsize=10, iters=10, mutations=3, numselect=5, args={}, xdes=[20,1]):
+def EA(popsize=10, iters=10, mutations=3, numselect=5, args={}, xdes=[20,1], verbose = False):
     starttime = time.time()
     if args: pop=np.concatenate((args['seed'],seedpop(), randpop(popsize-3)))
     else:    pop=np.concatenate((seedpop(), randpop(popsize-3)))
@@ -102,9 +110,11 @@ def EA(popsize=10, iters=10, mutations=3, numselect=5, args={}, xdes=[20,1]):
         goodpop, goodvals = select(pop, values, numselect)
         newpop =  np.concatenate((randpop(popsize-len(goodvals)-mutations), mutepop(goodpop, mutations)))
         newvals = np.array([x_to_rcost(x[0],x[1], xdes=xdes) for x in newpop])
-        pop, values = np.concatenate((goodpop, newpop)), np.concatenate((goodvals, newvals))        
+        pop, values = np.concatenate((goodpop, newpop)), np.concatenate((goodvals, newvals)) 
+        if verbose=="iters": print(["iter "+str(i)+": ",min(values)])
     minind = np.argmin(values)
     if args: args['seed'] = goodpop; args['ll_opt']= values[minind];  args['ll_optx']= pop[minind];
+    if verbose=="final": print(values[minind])
     return pop[minind], values[minind], time.time() - starttime
 def randpop(popsize):
     return np.array([[[random.randint(-1,1) for a in range(0,27)],[random.randint(-1,1) for a in range(0,27)]] for i in range(0,popsize)])

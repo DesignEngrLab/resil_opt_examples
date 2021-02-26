@@ -10,13 +10,13 @@ sys.path.append('../')
 import numpy as np
 from scipy.optimize import minimize
 from scipy.optimize import differential_evolution
-
+import time
 import fmdtools.faultsim.propagate as propagate
 import fmdtools.resultdisp as rd
 from tank_model import Tank
 from fmdtools.modeldef import SampleApproach
 from tank_opt import *
-
+import matplotlib.pyplot as plt
 
 # Nominal Run - nothing happens
 
@@ -48,9 +48,10 @@ from tank_opt import *
 #pop, values, time = EA(iters=100)
 #result, llargs = bilevel_opt()
 
-result, llargs = alternating_opt()
+#result, llargs, fhist, thist = alternating_opt()
 
-#result, llargs = bilevel_opt()
+result, llargs = bilevel_opt()
+#plt.plot(llargs['thist'],llargs['fhist'])
 
 #x_to_rcost(llargs['ll_optx'][0],llargs['ll_optx'][1])
 #result['x']
