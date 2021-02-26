@@ -77,10 +77,11 @@ def alternating_opt():
     bestsol = np.zeros((2,27))
     last_run = False
     starttime = time.time()
-    fhist = []
-    thist = []
+    fhist = [x_to_totcost2(xdes,bestsol[0], bestsol[1])]
+    thist = [0]
     for n in range(10):
         result = minimize(x_to_totcost2, [np.round(xdes[0],1), np.round(xdes[1],1)], method='Powell', callback=callbackF1, args = (bestsol[0],bestsol[1]), options={'direc':[[0,1],[1,0]], 'disp':True})
+        fhist.append(result['fun']); thist.append(time.time()-starttime)
         #result = minimize(x_to_totcost2, xdes, method='Powell', callback=callbackF1,  args = (bestsol[0],bestsol[1]), options={'disp':True,'ftol': 0.000001})
         # doesn't really work: trust-constr, SLSQP, Nelder-Mead (doesn't respect bounds), COBYLA (a bit better, but converges poorly), 
         # powell does okay but I'm not sure if it's actually searching the x-direction

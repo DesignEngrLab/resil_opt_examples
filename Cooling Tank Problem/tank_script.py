@@ -50,7 +50,7 @@ import matplotlib.pyplot as plt
 
 #result, llargs, fhist, thist = alternating_opt()
 
-result, llargs = bilevel_opt()
+#result, llargs = bilevel_opt()
 #plt.plot(llargs['thist'],llargs['fhist'])
 
 #x_to_rcost(llargs['ll_optx'][0],llargs['ll_optx'][1])
