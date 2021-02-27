@@ -25,7 +25,12 @@ params={'capacity':20, # size of the tank (10 - 100)
 
 
 def x_to_descost(xdes):
-    return (xdes[0]-10)*1000 + (xdes[0]-10)**2*1000   + xdes[1]**2*10000
+    pen = 0 #determining upper-level penalty
+    if xdes[0]<10: pen+=1e5*(10-xdes[0])**2
+    if xdes[0]>100: pen+=1e5*(100-xdes[0])**2
+    if xdes[1]<0: pen+=1e5*(xdes[1])**2
+    if xdes[1]>1: pen+=1e5*(1-xdes[1])**2
+    return (xdes[0]-10)*1000 + (xdes[0]-10)**2*1000   + xdes[1]**2*10000 + pen
 
 def x_to_rcost(xres1,xres2, xdes=[20,1]):
     fp = {(a-1,b-1,c-1):(xres1[i],xres2[i]) for i,(a,b,c) in enumerate(np.ndindex((3,3,3)))}
@@ -47,12 +52,7 @@ def x_to_totcost2(xdes, xres1, xres2):
 def x_to_totcost3(xdes, xres1, xres2): # total cost with crude penalty function
     do_cost = x_to_descost(xdes)
     rescost = x_to_rcost(xres1, xres2, xdes=xdes)
-    pen = 0
-    if xdes[0]<10: pen+=1e5*(10-xdes)**2
-    if xdes[0]>100: pen+=1e5*(100-xdes)**2
-    if xdes[1]<0: pen+=1e5*(xdes[1])**2
-    if xdes[1]>1: pen+=1e5*(1-xdes[1])**2
-    return do_cost + rescost + pen
+    return do_cost + rescost
 
 def lower_level(xdes, args):
     do_cost = x_to_descost(xdes) 
@@ -102,14 +102,16 @@ def callbackF(Xdes, result):
 def callbackF1(Xdes):
     print(Xdes)
 
-def EA(popsize=10, iters=10, mutations=3, numselect=5, args={}, xdes=[20,1], verbose = False):
+def EA(popsize=10, iters=10, mutations=3, numselect=3, args={}, xdes=[20,1], verbose = False):
     starttime = time.time()
     if args: pop=np.concatenate((args['seed'],seedpop(), randpop(popsize-3)))
     else:    pop=np.concatenate((seedpop(), randpop(popsize-3)))
+    makefeasible(pop)
     values = np.array([x_to_rcost(x[0],x[1], xdes=xdes) for x in pop])
     for i in range(iters):
         goodpop, goodvals = select(pop, values, numselect)
         newpop =  np.concatenate((randpop(popsize-len(goodvals)-mutations), mutepop(goodpop, mutations)))
+        makefeasible(newpop)
         newvals = np.array([x_to_rcost(x[0],x[1], xdes=xdes) for x in newpop])
         pop, values = np.concatenate((goodpop, newpop)), np.concatenate((goodvals, newvals)) 
         if verbose=="iters": print(["iter "+str(i)+": ",min(values)])
@@ -133,6 +135,9 @@ def permute(solution):
 def select(solutions, values, numselect):
     selection = np.argsort(values)[0:numselect]
     return solutions[selection], values[selection]
+def makefeasible(population):
+    for sol in population:
+        sol[0][13] = 0; sol[1][13] = 0
 
 def time_rcost():
     starttime = time.time()

@@ -29,6 +29,7 @@ import matplotlib.pyplot as plt
 #rd.plot.mdlhistvals(mdlhist)
 #rd.graph.show(resgraph)
 
+EA()
 
 
 
