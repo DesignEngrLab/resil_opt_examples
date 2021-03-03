@@ -12,7 +12,6 @@ import ibfm
 controllers=4
 conditions=3
 modes=3
-iterations=10
 runs=1
 pop=30
 generations=30
