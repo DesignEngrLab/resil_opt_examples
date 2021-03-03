@@ -127,3 +127,5 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+Monopropellant System Problem/ibfm.py
+EPS Redundancy Problem/ibfm.py

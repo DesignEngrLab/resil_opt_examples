@@ -1,0 +1,23 @@
+flow Material Flow
+
+flow Energy Flow
+
+flow Electrical Energy
+
+flow Heat Energy
+
+flow DesiredHeat Heat
+
+flow ChemicalEnergy Energy
+
+flow MechanicalEnergy Energy
+
+flow OpticalEnergy Energy
+
+flow Signal Flow
+
+
+flow Heat2 Heat
+
+flow Heat1 Heat
+
