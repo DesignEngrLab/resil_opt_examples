@@ -6,7 +6,6 @@ Created on Fri Jan 12 12:25:17 2018
 """
 
 import monopropOpt as mo
-import numpy as np
 from matplotlib import pyplot as plt
 import ibfm
 
