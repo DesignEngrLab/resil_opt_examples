@@ -4,14 +4,7 @@ Created on Thu Nov  2 11:34:44 2017
 
 @author: hulsed
 """
-import os
-import sys
-import fileinput
 import numpy as np
-import scipy as sp
-import importlib
-import ibfm
-import networkx as nx
 
 
 def scoreEndstates(exp, scenario):

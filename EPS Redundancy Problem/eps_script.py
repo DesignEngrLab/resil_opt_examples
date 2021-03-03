@@ -4,8 +4,6 @@ Optimization of EPS System
 """
 
 import epsOpt as eo
-import numpy as np
-from matplotlib import pyplot as plt
 import ibfm
 import importlib
 
