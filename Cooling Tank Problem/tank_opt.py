@@ -119,6 +119,9 @@ def EA(popsize=10, iters=10, mutations=3, numselect=3, args={}, xdes=[20,1], ver
     if args: args['seed'] = goodpop; args['ll_opt']= values[minind];  args['ll_optx']= pop[minind];
     if verbose=="final": print(values[minind])
     return pop[minind], values[minind], time.time() - starttime
+
+possible_sols = [[-1,-1], [-1,0], [-1,1], [0,-1], [0,0], [0,1], [1,-1], [1,0], [1,1]]
+
 def randpop(popsize):
     return np.array([[[random.randint(-1,1) for a in range(0,27)],[random.randint(-1,1) for a in range(0,27)]] for i in range(0,popsize)])
 def seedpop():
@@ -130,8 +133,14 @@ def mutepop(goodpop, mutations):
     to_mutate = np.random.choice([i for i in range(len(goodpop))], size=mutations, replace=False)
     return np.array([permute(solution) for solution in goodpop[to_mutate]])
 def permute(solution):
-    solution[random.randint(0,1)][random.randint(0,26)]=random.randint(-1,1)
+    mutation = possible_sols[random.randint(0,8)]
+    to_mutate = random.randint(0,26)
+    solution[0][to_mutate] = mutation[0]
+    solution[1][to_mutate] = mutation[1]
     return solution
+def crossover(goodpop, crossovers):
+    to_crossover = np.random.choice([i for i in range(len(goodpop))], size=crossovers, replace=False)
+    
 def select(solutions, values, numselect):
     selection = np.argsort(values)[0:numselect]
     return solutions[selection], values[selection]

@@ -101,7 +101,8 @@ class Tank(Model):
         sum(mdlhists['faulty']['functions']['Store_Coolant']['level']>=self.params['capacity'])*10000        #time the tank is overfull
         if any(mdlhists['faulty']['functions']['Store_Coolant']['level']<=0):     emptycost = 1000000     #if the tank lacks any water
         buffercost = sum(mdlhists['faulty']['functions']['Store_Coolant']['coolingbuffer']<=0)*100000     #if the buffer is 'spent'
-        totcost = overfullcost + emptycost + buffercost
+        mitigationcost = (sum(mdlhists['faulty']['flows']['Input_Sig']['action']!=0)+ sum(mdlhists['faulty']['flows']['Output_Sig']['action']!=0))*1000
+        totcost = overfullcost + emptycost + buffercost + mitigationcost
         rate=scen['properties']['rate']
         life=1e5
         return {'rate':rate, 'cost': totcost, 'expected cost': rate*life*totcost}
