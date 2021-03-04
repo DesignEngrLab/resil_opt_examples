@@ -102,15 +102,20 @@ def callbackF(Xdes, result):
 def callbackF1(Xdes):
     print(Xdes)
 
-def EA(popsize=10, iters=10, mutations=3, numselect=3, args={}, xdes=[20,1], verbose = False):
+def EA(popsize=10, iters=10, mutations=3, crossovers=2, numselect=3, args={}, xdes=[20,1], verbose = False):
     starttime = time.time()
-    if args: pop=np.concatenate((args['seed'],seedpop(), randpop(popsize-3)))
-    else:    pop=np.concatenate((seedpop(), randpop(popsize-3)))
+    randpopsize = popsize-numselect-mutations- crossovers
+    opers = [randpop, mutepop, crossover]
+    numopers = [randpopsize, mutations, crossovers]
+    used_opers = [oper for i, oper in enumerate(opers) if numopers[i]>0]
+    used_numopers = [numoper for numoper in numopers if numoper>0]
+    if args: pop=np.concatenate((args['seed'],seedpop(), randpop([],popsize-3)))
+    else:    pop=np.concatenate((seedpop(), randpop([],popsize-3)))
     makefeasible(pop)
     values = np.array([x_to_rcost(x[0],x[1], xdes=xdes) for x in pop])
     for i in range(iters):
         goodpop, goodvals = select(pop, values, numselect)
-        newpop =  np.concatenate((randpop(popsize-len(goodvals)-mutations), mutepop(goodpop, mutations)))
+        newpop =  np.concatenate(tuple([oper(goodpop,used_numopers[i]) for i,oper in enumerate(used_opers)]))
         makefeasible(newpop)
         newvals = np.array([x_to_rcost(x[0],x[1], xdes=xdes) for x in newpop])
         pop, values = np.concatenate((goodpop, newpop)), np.concatenate((goodvals, newvals)) 
@@ -122,7 +127,7 @@ def EA(popsize=10, iters=10, mutations=3, numselect=3, args={}, xdes=[20,1], ver
 
 possible_sols = [[-1,-1], [-1,0], [-1,1], [0,-1], [0,0], [0,1], [1,-1], [1,0], [1,1]]
 
-def randpop(popsize):
+def randpop(goodpop,popsize):
     return np.array([[[random.randint(-1,1) for a in range(0,27)],[random.randint(-1,1) for a in range(0,27)]] for i in range(0,popsize)])
 def seedpop():
     donothing = np.zeros((2,27))
@@ -139,8 +144,10 @@ def permute(solution):
     solution[1][to_mutate] = mutation[1]
     return solution
 def crossover(goodpop, crossovers):
-    to_crossover = np.random.choice([i for i in range(len(goodpop))], size=crossovers, replace=False)
-    
+    to_cross = np.random.choice([i for i in range(len(goodpop))], size=crossovers, replace=False)
+    divider = np.random.randint(1,25)
+    swap = np.random.choice([i for i in range(crossovers)], size=crossovers, replace=False)
+    return np.array([[np.concatenate((goodpop[to_cross[i]][0][:divider],goodpop[to_cross[swap[i]]][0][divider:])),np.concatenate((goodpop[to_cross[i]][1][:divider],goodpop[to_cross[swap[i]]][1][divider:]))] for i in range(crossovers)])
 def select(solutions, values, numselect):
     selection = np.argsort(values)[0:numselect]
     return solutions[selection], values[selection]

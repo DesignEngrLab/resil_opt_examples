@@ -29,8 +29,11 @@ import matplotlib.pyplot as plt
 #rd.plot.mdlhistvals(mdlhist)
 #rd.graph.show(resgraph)
 
-EA()
+EA(popsize=30, iters=30, mutations=10, crossovers=3, numselect=15, verbose='iters')
 
+#pop = seedpop()
+
+#newpop = crossover(pop, 2)
 
 
 #endresults, resgraph, mdlhist = propagate.one_fault(mdl,'Import_Water','Leak', time=3)
@@ -46,7 +49,10 @@ EA()
 
 #result = differential_evolution(x_to_rcost2, [(0,1) for i in range(0,27)]+[(10,100) for i in range(0,27)], maxiter=20, popsize=10)
 
-pop, values, time = EA(iters=100, popsize=30, mutations=14, numselect=15, verbose='iters')
+
+
+
+#pop, values, time = EA(iters=100, popsize=30, mutations=14, numselect=15, verbose='iters')
 #result, llargs = bilevel_opt()
 
 #result, llargs, fhist, thist = alternating_opt()
