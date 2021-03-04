@@ -86,7 +86,7 @@ def alternating_opt():
         # doesn't really work: trust-constr, SLSQP, Nelder-Mead (doesn't respect bounds), COBYLA (a bit better, but converges poorly), 
         # powell does okay but I'm not sure if it's actually searching the x-direction
         xdes = result['x']
-        bestsol, rcost, runtime = EA(args=args, popsize=50, mutations=10,numselect=20, iters=20, xdes = xdes, verbose="iters")
+        bestsol, rcost, runtime = EA(args=args, popsize=50, mutations=10,numselect=20, crossovers=5, iters=20, xdes = xdes, verbose="iters")
         lastmin = newmin; newmin = x_to_descost(xdes) + rcost
         print(n, newmin, lastmin-newmin)
         if lastmin - newmin <0.1: 
@@ -102,7 +102,7 @@ def callbackF(Xdes, result):
 def callbackF1(Xdes):
     print(Xdes)
 
-def EA(popsize=10, iters=10, mutations=3, crossovers=2, numselect=3, args={}, xdes=[20,1], verbose = False):
+def EA(popsize=10, iters=20, mutations=3, crossovers=2, numselect=3, args={}, xdes=[20,1], verbose = False):
     starttime = time.time()
     randpopsize = popsize-numselect-mutations- crossovers
     opers = [randpop, mutepop, crossover]
