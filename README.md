@@ -1,5 +1,7 @@
 # resil_opt_examples
 
+[![DOI](https://zenodo.org/badge/339532572.svg)](https://zenodo.org/badge/latestdoi/339532572)
+
 This repository contains examples of resilience optimization problems for the study of optimization approaches and strategies.
 
 The models are:
