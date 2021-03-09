@@ -119,21 +119,27 @@ def DiseaseModel(x0):
             nom=nom+1  
             state[i]='nom'
     # treatment fee for each people            
-    H=1
+    H=100000
     # average expense for each people
     E=10000
     # PL1 lasting time
     T=PL1 
     # salary for each medical people per day
-    Em=1
+    Em=10000
     # extra medical people total working time
     Tm=n * (t-1+t-PL2)*PL2/2        
     
+    # cost of infections + cost of reduce spread measure + cost of treatment measure
     totalcost=(R[-1]-vc)*H + (a-x0[0])* N * E * T +  Em * Tm
     return totalcost, S , I , R, PL1, PL2, nom,infect_rate,recover_rate, state,vc
 
 def objective(x0):
     totalcost,_,_,_,_,_,_,_,_,_,_ = DiseaseModel(x0)
+    return totalcost
+def objective2(x0, args):
+    totalcost,_,_,_,_,_,_,_,_,_,_ = DiseaseModel(x0)
+    args['timehist'] = args['timehist'] +[time.time()-args['starttime']]
+    args['fhist'] = args['fhist'] + [totalcost]
     return totalcost
 
 
@@ -161,7 +167,7 @@ def track_opthist(xk, convergence):
     
 ## Starting point?
 #x0 = [1,0.5,1e-4, 0.5,1,1]
-x0 = [0.2 , 0 , 0 , 10 , 100 , 100 ] 
+x0 = [0.1 , 2 , 9 , 9, 1000 , 1000 ] 
 result_x0=list(DiseaseModel(x0))
 #print(result0[3])
 x=list(range(0,t))
@@ -181,10 +187,12 @@ dataframe.to_csv("test_new_PL1.csv",index=False,sep=',')
 
 # need a better objective - currently the bounds are the only thing keeping this from
 # not having a policy response at all
-bounds = [(0, 0.2), (1, 5),(9, 10),(9, 10),(0, 1),(0, 5)]
+bounds = [(0, 0.2), (1, 5),(8, 10),(8, 10),(0, 200),(0, 500)]
 starttime= time.time()
 result = differential_evolution(objective, bounds, maxiter=10000, callback = track_opthist)
 endtime = time.time() - starttime
+print("-----------------")
+
 ##
 ##print(result.x, result.fun)
 # # 'a': x0[0] ,'n':x0[1] ,'v' : x0[2] ,'m': x0[3], 'alpha': x0[4] , 'IR':x0[5]
@@ -201,9 +209,9 @@ print(result.nit)
 result_opt = list(DiseaseModel(result.x))
 
 fig = plt.figure()
-plt.plot(x,result_x0[1],'k', linestyle=":", label='Susceptible ($x_0$)')
-plt.plot(x,result_x0[2],'r', linestyle=":", label='Infected ($x_0$)')
-plt.plot(x,result_x0[3],'g', linestyle=":", label='Recovered ($x_0$)')
+plt.plot(x,result_x0[1],'k', linestyle=":", label='Susceptible')
+plt.plot(x,result_x0[2],'r', linestyle=":", label='Infected')
+plt.plot(x,result_x0[3],'g', linestyle=":", label='Recovered')
 
 plt.plot(x,result_opt[1],'k', label='Susceptible ($x^*$)')
 plt.plot(x,result_opt[2],'r', label='Infected ($x^*$)')
@@ -225,11 +233,16 @@ print('stop day:',stop)
 print('total infected people:',result_opt[3][-1]-result_opt[10])
 
 
-fig = plt.figure()
-# have to grab this from the output of the algorithm
-opthist = [3940.033102180918, 3539.997203320372, 3539.997203320372, 3522.5208502594473, 3514.5513183803196, 3511.483713804227, 3457.0559250445776, 3457.0559250445776, 3457.0559250445776, 3380.9766907384746, 3380.9766907384746, 3380.9766907384746, 3380.9766907384746, 3378.287020404943, 3378.287020404943, 3378.287020404943, 3378.287020404943, 3375.5233626029385, 3374.8534377823826, 3370.629499504786, 3370.08153952077, 3370.08153952077, 3370.08153952077, 3369.263401054664, 3369.263401054664, 3369.263401054664, 3369.263401054664, 3368.967339069523]
+fig = plt.figure(figsize=(3, 2.5))
+# have to grab this from the output of the algorithm and place in opt_results.csv
+
+opthist = pd.read_csv("opt_results.csv")
 thist = np.linspace(0, endtime, len(opthist))
 
-plt.plot(thist, opthist)
+plt.plot(thist, opthist, linewidth=3)
+plt.xlabel("Computational Time (s)")
+plt.ylabel("Best Solution")
+plt.grid()
+fig.savefig('pandemic_opt.pdf', format="pdf", bbox_inches = 'tight', pad_inches = 0.0)
 
 #print(result0[9])
