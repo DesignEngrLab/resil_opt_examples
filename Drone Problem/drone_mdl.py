@@ -4,6 +4,7 @@ File name: quad_mdl.py
 Author: Daniel Hulse
 Created: June 2019
 Description: A fault model of a multi-rotor drone.
+Requires fmdtools 0.6
 """
 import numpy as np
 from fmdtools.modeldef import *

@@ -18,13 +18,16 @@ import fmdtools.faultsim.propagate as propagate
 import fmdtools.resultdisp as rd
 from tank_model import Tank
 from fmdtools.modeldef import SampleApproach
+import multiprocessing as mp
+
+
 
 params={'capacity':20, # size of the tank (10 - 100)
         'turnup':0.0,  # amount the pump can be "turned up" (0 - 1)
         'faultpolicy':{(a-1,b-1,c-1):(-(a-1),-(c-1)) for a,b,c in np.ndindex((3,3,3))}} #state-action pairs for resilience policy: what to given fault signals
 
 
-def x_to_descost(xdes):
+def x_to_descost(xdes, xres1=[], xres2=[]):
     pen = 0 #determining upper-level penalty
     if xdes[0]<10: pen+=1e5*(10-xdes[0])**2
     if xdes[0]>100: pen+=1e5*(100-xdes[0])**2
@@ -32,11 +35,11 @@ def x_to_descost(xdes):
     if xdes[1]>1: pen+=1e5*(1-xdes[1])**2
     return (xdes[0]-10)*1000 + (xdes[0]-10)**2*1000   + xdes[1]**2*10000 + pen
 
-def x_to_rcost(xres1,xres2, xdes=[20,1]):
+def x_to_rcost(xres1,xres2, xdes=[20,1], pool=False):
     fp = {(a-1,b-1,c-1):(xres1[i],xres2[i]) for i,(a,b,c) in enumerate(np.ndindex((3,3,3)))}
     mdl=Tank(params={'capacity':xdes[0],'turnup':xdes[1],'faultpolicy':fp})
     app = SampleApproach(mdl)
-    endclasses, mdlhists = propagate.approach(mdl, app, staged=True)
+    endclasses, mdlhists = propagate.approach(mdl, app, staged=True, showprogress=False, pool=pool)
     rescost = rd.process.totalcost(endclasses)
     return rescost
 
@@ -45,9 +48,9 @@ def x_to_totcost(xdes, xres1, xres2):
     do_cost = x_to_descost(xdes)
     rescost = x_to_rcost(xres1, xres2, xdes=xdes)
     return do_cost, rescost
-def x_to_totcost2(xdes, xres1, xres2):
+def x_to_totcost2(xdes, xres1, xres2, pool=False):
     do_cost = x_to_descost(xdes)
-    rescost = x_to_rcost(xres1, xres2, xdes=xdes)
+    rescost = x_to_rcost(xres1, xres2, xdes=xdes, pool=pool)
     return do_cost + rescost
 def x_to_totcost3(xdes, xres1, xres2): # total cost with crude penalty function
     do_cost = x_to_descost(xdes)
@@ -56,45 +59,52 @@ def x_to_totcost3(xdes, xres1, xres2): # total cost with crude penalty function
 
 def lower_level(xdes, args):
     do_cost = x_to_descost(xdes) 
-    bestsol, rcost, runtime = EA(args=args, xdes=xdes)
-    args['fhist'].append(do_cost+rcost)
-    args['thist'].append(time.time()-args['starttime'])
+    bestsol, rcost, runtime = EA(popsize=20, mutations=6, crossovers=4, numselect=6, args=args, xdes=xdes)
+    t = time.time()-args['starttime']
+    f=do_cost+rcost
+    args['fhist'].append(f); args['thist'].append(t); args['xdhist'].append(xdes)
+    print('time: '+str(t)+' fval: '+str(f)+' xdes: '+str(xdes))
     return do_cost + rcost
 
-def bilevel_opt():
-    xdes = [20, 1]
-    args = {'seed':seedpop(), 'll_opt':1e6, 'll_optx':[], 'fhist':[],'thist':[],'starttime':time.time()}
-    result = minimize(lower_level, xdes, method='Powell', bounds =((10, 100),(0,1)), callback=callbackF1, args = args, options={'direc':[[0,1],[1,0]], 'disp':"final"})
-    fullfhist = args['fhist']
-    args['fhist'] =  [fullfhist[0]]+[min(fullfhist[:i]) for i,f in enumerate(fullfhist) if i!=0]
-    return result, args
+def bilevel_opt(pool=False, xdes=[21,.5]):
+    args = {'seed':seedpop(), 'll_opt':1e6, 'll_optx':[], 'fhist':[],'thist':[],'starttime':time.time(), 'pool':pool, 'xdhist':[xdes]}
+    result = minimize(lower_level, xdes, method='Nelder-Mead', bounds =((10, 100),(0,1)), callback=callbackF1, args = args, options={'disp':True, 'adaptive':True, 'fatol':10, 'xtol':0.00001})
+    fullfhist = args['fhist']; fullxdhist = args['xdhist']
+    bestfhist=  [fullfhist[0]]+[min(fullfhist[:i]) for i,f in enumerate(fullfhist) if i!=0]
+    bestxdhist = [fullxdhist[0]]+[fullxdhist[np.argmin(fullfhist[:i])] for i,f in enumerate(fullfhist) if i!=0]
+    return result, args, bestfhist, bestxdhist
 
-def alternating_opt():
-    xdes = np.array([20, 1])
+def alternating_opt(option='with_cr', pool=False, xdes=[21,.5]):
+    xdes = np.array(xdes)
     args = {'seed':seedpop(), 'll_opt':1e6, 'll_optx':[]}
     newmin = 100000000
     lastmin = 1000000001
     bestsol = np.zeros((2,27))
     last_run = False
+    if option=='with_cr':       ul_cost_func = x_to_totcost2
+    elif option=='without_cr':  ul_cost_func= x_to_descost
     starttime = time.time()
-    fhist = [x_to_totcost2(xdes,bestsol[0], bestsol[1])]
+    fhist = [x_to_totcost2(xdes,bestsol[0], bestsol[1], pool)]
     thist = [0]
+    xdhist = [xdes]
     for n in range(10):
-        result = minimize(x_to_totcost2, [np.round(xdes[0],1), np.round(xdes[1],1)], method='Powell', callback=callbackF1, args = (bestsol[0],bestsol[1]), options={'direc':[[0,1],[1,0]], 'disp':True})
-        fhist.append(result['fun']); thist.append(time.time()-starttime)
+        result = minimize(ul_cost_func, [np.round(xdes[0],1), np.round(xdes[1],1)], method='Nelder-Mead', bounds =((10, 100),(0,1)), callback=callbackF1, args = (bestsol[0],bestsol[1]), options={'disp':True})
+        xdes = result['x']
         #result = minimize(x_to_totcost2, xdes, method='Powell', callback=callbackF1,  args = (bestsol[0],bestsol[1]), options={'disp':True,'ftol': 0.000001})
         # doesn't really work: trust-constr, SLSQP, Nelder-Mead (doesn't respect bounds), COBYLA (a bit better, but converges poorly), 
         # powell does okay but I'm not sure if it's actually searching the x-direction
-        xdes = result['x']
-        bestsol, rcost, runtime = EA(args=args, popsize=50, mutations=10,numselect=20, crossovers=5, iters=20, xdes = xdes, verbose="iters")
+        bestsol, rcost, runtime = EA(args=args, popsize=50, mutations=10,numselect=20, crossovers=5, iters=100, xdes = xdes, verbose="iters")
         lastmin = newmin; newmin = x_to_descost(xdes) + rcost
+        fhist.append(newmin)
+        xdhist.append(xdes)
+        thist.append(time.time()-starttime)
         print(n, newmin, lastmin-newmin)
         if lastmin - newmin <0.1: 
             if last_run:    break
             else:           last_run = True
         else:               last_run = False
         fhist.append(newmin), thist.append(time.time()-starttime)
-    return result, args, fhist, thist
+    return result, args, fhist, thist, xdhist
 
 
 def callbackF(Xdes, result):
@@ -109,10 +119,10 @@ def EA(popsize=10, iters=20, mutations=3, crossovers=2, numselect=3, args={}, xd
     numopers = [randpopsize, mutations, crossovers]
     used_opers = [oper for i, oper in enumerate(opers) if numopers[i]>0]
     used_numopers = [numoper for numoper in numopers if numoper>0]
-    if args: pop=np.concatenate((args['seed'],seedpop(), randpop([],popsize-3)))
-    else:    pop=np.concatenate((seedpop(), randpop([],popsize-3)))
+    if args: pop=np.concatenate((args['seed'],seedpop(), randpop([],popsize-3))); pool=False
+    else:    pop=np.concatenate((seedpop(), randpop([],popsize-3))); pool=args.get('pool', False)
     makefeasible(pop)
-    values = np.array([x_to_rcost(x[0],x[1], xdes=xdes) for x in pop])
+    values = np.array([x_to_rcost(x[0],x[1], xdes=xdes, pool=pool) for x in pop])
     for i in range(iters):
         goodpop, goodvals = select(pop, values, numselect)
         newpop =  np.concatenate(tuple([oper(goodpop,used_numopers[i]) for i,oper in enumerate(used_opers)]))
@@ -163,6 +173,10 @@ def time_rcost():
     rescost = rd.process.totalcost(endclasses)
     return time.time() - starttime
 
+if __name__=="__main__":
+    pool=mp.Pool(5)
+    #result, args, fhist, thist, xdhist = alternating_opt(pool=pool)
+    result, args, bestfhist, bestxdhist = bilevel_opt(pool=pool)
 
 
 
